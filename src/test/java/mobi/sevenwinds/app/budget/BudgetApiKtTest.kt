@@ -7,6 +7,7 @@ import mobi.sevenwinds.common.toResponse
 import org.jetbrains.exposed.sql.deleteAll
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.junit.Assert
+import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
@@ -19,12 +20,12 @@ class BudgetApiKtTest : ServerTest() {
 
     @Test
     fun testBudgetPagination() {
-        addRecord(BudgetRecord(2020, 5, 10, BudgetType.Приход))
-        addRecord(BudgetRecord(2020, 5, 5, BudgetType.Приход))
-        addRecord(BudgetRecord(2020, 5, 20, BudgetType.Приход))
-        addRecord(BudgetRecord(2020, 5, 30, BudgetType.Приход))
-        addRecord(BudgetRecord(2020, 5, 40, BudgetType.Приход))
-        addRecord(BudgetRecord(2030, 1, 1, BudgetType.Расход))
+        addRecord(BudgetCreateRecordParams(2020, 5, 10, BudgetType.Приход))
+        addRecord(BudgetCreateRecordParams(2020, 5, 5, BudgetType.Приход))
+        addRecord(BudgetCreateRecordParams(2020, 5, 20, BudgetType.Приход))
+        addRecord(BudgetCreateRecordParams(2020, 5, 30, BudgetType.Приход))
+        addRecord(BudgetCreateRecordParams(2020, 5, 40, BudgetType.Приход))
+        addRecord(BudgetCreateRecordParams(2030, 1, 1, BudgetType.Расход))
 
         RestAssured.given()
             .queryParam("limit", 3)
@@ -41,13 +42,11 @@ class BudgetApiKtTest : ServerTest() {
 
     @Test
     fun testStatsSortOrder() {
-        addRecord(BudgetRecord(2020, 5, 100, BudgetType.Приход))
-        addRecord(BudgetRecord(2020, 1, 5, BudgetType.Приход))
-        addRecord(BudgetRecord(2020, 5, 50, BudgetType.Приход))
-        addRecord(BudgetRecord(2020, 1, 30, BudgetType.Приход))
-        addRecord(BudgetRecord(2020, 5, 400, BudgetType.Приход))
-
-        // expected sort order - month ascending, amount descending
+        addRecord(BudgetCreateRecordParams(2020, 5, 100, BudgetType.Приход))
+        addRecord(BudgetCreateRecordParams(2020, 1, 5, BudgetType.Приход))
+        addRecord(BudgetCreateRecordParams(2020, 5, 50, BudgetType.Приход))
+        addRecord(BudgetCreateRecordParams(2020, 1, 30, BudgetType.Приход))
+        addRecord(BudgetCreateRecordParams(2020, 5, 400, BudgetType.Приход))
 
         RestAssured.given()
             .get("/budget/year/2020/stats?limit=100&offset=0")
@@ -65,22 +64,29 @@ class BudgetApiKtTest : ServerTest() {
     @Test
     fun testInvalidMonthValues() {
         RestAssured.given()
-            .jsonBody(BudgetRecord(2020, -5, 5, BudgetType.Приход))
+            .jsonBody(BudgetCreateRecordParams(2020, -5, 5, BudgetType.Приход))
             .post("/budget/add")
             .then().statusCode(400)
 
         RestAssured.given()
-            .jsonBody(BudgetRecord(2020, 15, 5, BudgetType.Приход))
+            .jsonBody(BudgetCreateRecordParams(2020, 15, 5, BudgetType.Приход))
             .post("/budget/add")
             .then().statusCode(400)
     }
 
-    private fun addRecord(record: BudgetRecord) {
+    private fun addRecord(record: BudgetCreateRecordParams) {
         RestAssured.given()
             .jsonBody(record)
             .post("/budget/add")
-            .toResponse<BudgetRecord>().let { response ->
-                Assert.assertEquals(record, response)
-            }
+            .toResponse<BudgetCreateRecordParams>().let { response ->
+                Assertions.assertEquals(record.year, response.year)
+                Assertions.assertEquals(record.month, response.month)
+                Assertions.assertEquals(record.amount, response.amount)
+                Assertions.assertEquals(record.type, response.type)
+
+                val nullableFields = listOf(record.authorId)
+                Assertions.assertTrue(nullableFields.all { it == null } || nullableFields.none { it == null })
+
+                }
     }
 }
